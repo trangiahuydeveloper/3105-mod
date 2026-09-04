@@ -35,6 +35,7 @@ struct FileBrowserView: View {
     @State private var transferSession: FileTransferSession?
     @State private var transferConflict: FileTransferConflict?
     @State private var deleteTargets: [FileEntry] = []
+    @State private var exportItem: ExportItem?
     @AppStorage(FileBrowserSortOrder.storageKey)
     private var sortOrderRaw = FileBrowserSortOrder.nameAscending.rawValue
 
@@ -245,6 +246,13 @@ struct FileBrowserView: View {
             )
             .ignoresSafeArea()
         }
+        .sheet(item: $exportItem) { item in
+            ActivityViewController(activityItems: [item.fileURL]) {
+                try? FileManager.default.removeItem(at: item.directoryURL)
+                exportItem = nil
+            }
+            .ignoresSafeArea()
+        }
         .sheet(isPresented: $isShowingImportPicker) {
             FileDocumentPicker(
                 allowsMultipleSelection: true,
@@ -453,7 +461,9 @@ struct FileBrowserView: View {
         } label: {
             Label(language.text("browser.move"), systemImage: "folder")
         }
-        ShareLink(item: URL(fileURLWithPath: entry.path)) {
+        Button {
+            exportFileToShareSheet(entry)
+        } label: {
             Label(language.text("browser.share"), systemImage: "square.and.arrow.up")
         }
         Divider()
@@ -495,6 +505,26 @@ struct FileBrowserView: View {
             deleteTargets = [entry]
         } label: {
             Label(language.text("browser.delete"), systemImage: "trash")
+        }
+    }
+
+    private func exportFileToShareSheet(_ entry: FileEntry) {
+        guard !entry.isDirectory else { return }
+        let sourceURL = URL(fileURLWithPath: entry.path)
+        Task.detached(priority: .userInitiated) {
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent("3105-Export", isDirectory: true)
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            let destination = directory.appendingPathComponent(sourceURL.lastPathComponent)
+            do {
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                try FileManager.default.copyItem(at: sourceURL, to: destination)
+                await MainActor.run {
+                    exportItem = ExportItem(fileURL: destination, directoryURL: directory)
+                }
+            } catch {
+                // silently fail — file may be inaccessible
+            }
         }
     }
 
@@ -1833,4 +1863,30 @@ private struct FileQuickLookController: UIViewControllerRepresentable {
             url as NSURL
         }
     }
+}
+
+// MARK: - Export Support
+
+struct ExportItem: Identifiable {
+    let id = UUID()
+    let fileURL: URL
+    let directoryURL: URL
+}
+
+private struct ActivityViewController: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    let onDismiss: () -> Void
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(
+            activityItems: activityItems,
+            applicationActivities: nil
+        )
+        controller.completionWithItemsHandler = { _, _, _, _ in
+            onDismiss()
+        }
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
