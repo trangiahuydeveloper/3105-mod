@@ -17,12 +17,20 @@ jobs:
 
       - name: Build Archive (no code sign)
         run: |
-          xcodebuild archive             -project ThreeOneOSFive.xcodeproj             -scheme ThreeOneOSFive             -configuration Release             -archivePath build/3105.xcarchive             CODE_SIGN_IDENTITY=''             CODE_SIGNING_REQUIRED=NO             CODE_SIGNING_ALLOWED=NO             -allowProvisioningUpdates 2>&1 | tail -80
+          xcodebuild archive \
+            -project ThreeOneOSFive.xcodeproj \
+            -scheme ThreeOneOSFive \
+            -configuration Release \
+            -archivePath build/3105.xcarchive \
+            CODE_SIGN_IDENTITY='' \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            -allowProvisioningUpdates 2>&1 | tail -80
 
       - name: Package IPA (unsigned)
         run: |
           mkdir -p build/Payload
-          cp -r build/3105.xcarchive/Products/Applications/ThreeOneOSFive.app build/Payload/
+          cp -r build/3105.xcarchive/Products/Applications/3105.app build/Payload/
           cd build && zip -r ../3105_unsigned.ipa Payload/
 
       - name: Upload IPA artifact
