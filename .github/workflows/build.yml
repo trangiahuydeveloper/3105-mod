@@ -22,7 +22,6 @@ jobs:
             -target 3105 \
             -configuration Release \
             -sdk iphoneos \
-            -derivedDataPath build_output \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
@@ -30,7 +29,8 @@ jobs:
       - name: Package IPA
         run: |
           mkdir -p Payload
-          APP_PATH=$(find build_output -name "*.app" -type d | head -n 1)
+          # Quét tìm file .app trong thư mục hiện tại
+          APP_PATH=$(find . -name "*.app" -type d | grep -v "Payload" | head -n 1)
           echo "Found app at: $APP_PATH"
           cp -r "$APP_PATH" Payload/
           zip -r 3105_unsigned.ipa Payload/
